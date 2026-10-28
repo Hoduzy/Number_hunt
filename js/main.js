@@ -82,6 +82,9 @@ function startGame(settings) {
     if (affected.includes(p)) ui.flash(1);
     else if (p.getEyePosition(eye).distanceTo(pos) < 12) ui.flash(0.45);
   });
+  game.on('gaugeWarn', ({ character }) => {
+    if (character.isPlayer) ui.toast('숨음 게이지 70%! 얼굴을 드러내세요', 'warn');
+  });
   photos.clear();
   ui.showGame(game);
   input.reset();

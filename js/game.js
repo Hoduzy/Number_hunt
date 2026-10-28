@@ -6,6 +6,7 @@ import { Character } from './character.js';
 import { generateUniqueNumbers } from './numbers.js';
 import { LocalPlayerController } from './player.js';
 import { ItemSystem } from './items.js';
+import { GaugeSystem } from './gauge.js';
 
 const COLORS = [0x3a86ff, 0xff006e, 0x8338ec, 0xfb5607, 0x06d6a0, 0xffbe0b];
 
@@ -55,6 +56,7 @@ export class Game {
       if (!c.isPlayer) c.controller = new IdleController(c);
     }
     this.items = new ItemSystem(this);
+    this.gauge = new GaugeSystem(this);
   }
 
   useItem(c) { return this.items.use(c); }
@@ -69,6 +71,7 @@ export class Game {
     for (const c of this.characters) c.update(dt, now, this.map);
     this._separateCharacters();
     this.items.update(dt, now);
+    this.gauge.update(dt);
   }
 
   // 캐릭터끼리 겹치지 않게 밀어낸다

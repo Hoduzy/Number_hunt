@@ -76,6 +76,13 @@ export class UI {
     }
   }
 
+  _updateGauge(p) {
+    const pct = Math.round(p.gauge * 100);
+    $('gauge-fill').style.width = `${pct}%`;
+    $('gauge-state').textContent = p.hidden ? `숨는 중 ▲ ${pct}%` : (pct > 0 ? `얼굴 드러남 ▼ ${pct}%` : '');
+    $('gauge').classList.toggle('warn', p.gauge >= 0.7);
+  }
+
   // 섬광 화면 효과 (0~1)
   flash(strength) {
     const el = $('flash-overlay');
@@ -124,6 +131,7 @@ export class UI {
     $('telescope-overlay').classList.toggle('hidden', !(p.alive && p.isTelescoping(now)));
     $('stun-overlay').classList.toggle('hidden', !(p.alive && p.isStunned(now)));
     $('btn-prone').classList.toggle('on', p.prone);
+    this._updateGauge(p);
     if (this.vision) {
       this.el.perf.textContent = `${Math.round(this.vision.fps)} fps · 블러 ${this.vision.levelName}`;
     }
