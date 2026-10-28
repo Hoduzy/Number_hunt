@@ -84,6 +84,47 @@ export class Game {
     }
   }
 
+  // ---------- 규칙: 숫자 입력 ----------
+  // 결과: {ok:true, target} | {ok:false, reason:'penalty'|'invalid'|'self'|'dead', until}
+  submitGuess(guesser, numberStr) {
+    const now = this.time;
+    if (this.over || !guesser.alive) return { ok: false, reason: 'over' };
+    if (now < guesser.penaltyUntil) return { ok: false, reason: 'penalty', until: guesser.penaltyUntil };
+    const num = String(numberStr).trim();
+    const owner = this.characters.find((c) => c.number === num);
+    let reason = null;
+    if (!owner) reason = 'invalid';
+    else if (owner === guesser) reason = 'self';
+    else if (!owner.alive) reason = 'dead';
+    if (reason) {
+      guesser.penaltyUntil = now + CONFIG.guess.penaltySeconds;
+      this.emit('penalty', { character: guesser, reason, number: num });
+      return { ok: false, reason, until: guesser.penaltyUntil };
+    }
+    this.eliminate(owner, { by: guesser, reason: 'guess' });
+    return { ok: true, target: owner };
+  }
+
+  eliminate(victim, { by = null, reason = 'guess' } = {}) {
+    if (!victim.alive || this.over) return;
+    victim.eliminate(this.time);
+    this._lastCause = { by, reason };
+    this.emit('eliminated', { victim, by, reason });
+    this._checkEnd(victim);
+  }
+
+  _checkEnd(lastVictim) {
+    const alive = this.alive;
+    const player = this.player;
+    if (!player.alive) {
+      this.over = true;
+      this.emit('end', { win: false, winner: null, rank: alive.length + 1, cause: lastVictim === player ? this._lastCause : null });
+    } else if (alive.length <= 1) {
+      this.over = true;
+      this.emit('end', { win: true, winner: player, rank: 1 });
+    }
+  }
+
   dispose() {
     for (const c of this.characters) this.scene.remove(c.model.root);
     this.characters = [];

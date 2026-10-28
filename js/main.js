@@ -44,13 +44,22 @@ let lastSettings = null;
 
 function startGame(settings) {
   lastSettings = settings;
+  ui.keypad.close();
   if (game) game.dispose();
   vision.setQualityMode(settings.quality === 'auto' ? 'auto' : Number(settings.quality));
   game = new Game({ scene, map, input, difficulty: settings.difficulty });
   game.on('end', (e) => {
+    ui.keypad.close();
     input.enabled = false;
     input.exitPointerLock();
-    setTimeout(() => ui.showEnd(e), 1200);
+    setTimeout(() => ui.showEnd({ win: e.win, detail: endDetail(e) }), 1400);
+  });
+  game.on('eliminated', ({ victim, by, reason }) => {
+    if (victim.isPlayer) return;
+    let text = `${victim.number}번 탈락!`;
+    if (reason === 'gauge') text += ' (숨음 게이지)';
+    else if (by && by.isPlayer) text += ' (내가 찾음)';
+    ui.toast(text);
   });
   ui.showGame(game);
   input.reset();
@@ -58,6 +67,20 @@ function startGame(settings) {
   paused = false;
   input.requestPointerLock();
 }
+
+function endDetail(e) {
+  if (e.win) return '모든 상대의 번호를 찾아냈어요!';
+  const lines = [`순위: ${e.rank}위`];
+  if (e.cause && e.cause.reason === 'gauge') lines.unshift('숨음 게이지가 가득 찼어요.');
+  else if (e.cause && e.cause.by) lines.unshift(`${e.cause.by.number}번에게 번호를 들켰어요.`);
+  return lines.join('\n');
+}
+
+// ---------- 숫자 입력 ----------
+ui.keypad.onSubmit = (num) => (game ? game.submitGuess(game.player, num) : null);
+ui.keypad.onOpenChange = (open) => input.setTextSink(open ? ui.keypad : null);
+input.on('keypad', (first) => { if (game && !game.over) ui.keypad.open(first); });
+document.getElementById('btn-keypad').addEventListener('click', () => { if (game && !game.over) ui.keypad.toggle(); });
 
 function readSettings() {
   return {
@@ -73,6 +96,7 @@ document.getElementById('btn-quit').addEventListener('click', goHome);
 document.getElementById('btn-resume').addEventListener('click', () => setPaused(false));
 
 function goHome() {
+  ui.keypad.close();
   if (game) { game.dispose(); game = null; }
   input.enabled = false;
   ui.showStart();
