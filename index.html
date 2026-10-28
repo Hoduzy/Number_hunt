@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <title>넘버 헌트</title>
+  <link rel="stylesheet" href="css/style.css" />
+  <script type="importmap">
+    { "imports": { "three": "./vendor/three/three.module.js" } }
+  </script>
+</head>
+<body>
+  <div id="game"></div>
+
+  <!-- 인게임 HUD -->
+  <div id="hud" class="hidden">
+    <div id="my-number" class="card">
+      <div class="label">내 번호</div>
+      <div class="value" id="my-number-value">---</div>
+    </div>
+    <div id="alive" class="card"><span class="label">남은 인원</span> <b id="alive-count">5</b></div>
+    <div id="perf" class="card small"></div>
+    <div id="feed"></div>
+    <div id="center-msg"></div>
+
+    <div id="gauge" class="card">
+      <div class="gauge-head"><span>숨음 게이지</span><span id="gauge-state"></span></div>
+      <div class="gauge-bar"><div id="gauge-fill"></div></div>
+    </div>
+
+    <div id="buttons">
+      <button id="btn-item" class="hud-btn big" title="아이템 사용 (E)">
+        <span class="icon" id="item-icon">∅</span><span class="name" id="item-name">아이템 없음</span><span class="sub" id="item-sub"></span>
+      </button>
+      <button id="btn-keypad" class="hud-btn" title="숫자 입력 (Enter)"><span class="icon">#</span><span class="name">숫자 입력</span></button>
+      <button id="btn-prone" class="hud-btn" title="엎드리기 (C)"><span class="icon">⤵</span><span class="name">엎드리기</span></button>
+      <button id="btn-photos" class="hud-btn" title="사진 보기 (G)"><span class="icon">▣</span><span class="name">사진 <b id="photo-count">0</b></span></button>
+    </div>
+    <div id="penalty" class="hidden">입력 불가 <b id="penalty-sec">5</b>초</div>
+    <div id="hint" class="desktop-only">WASD 이동 · 마우스 시점 · E 아이템 · Enter 숫자 입력 · C 엎드리기 · G 사진 · Esc 메뉴</div>
+  </div>
+
+  <div id="telescope-overlay" class="hidden"></div>
+  <div id="flash-overlay"></div>
+  <div id="stun-overlay" class="hidden">경직!</div>
+
+  <!-- 숫자 키패드 -->
+  <div id="keypad" class="overlay-panel hidden">
+    <div class="keypad-box">
+      <div class="keypad-title">상대 번호 입력</div>
+      <div id="keypad-display"><span></span><span></span><span></span></div>
+      <div id="keypad-msg"></div>
+      <div class="keypad-grid">
+        <button data-k="1">1</button><button data-k="2">2</button><button data-k="3">3</button>
+        <button data-k="4">4</button><button data-k="5">5</button><button data-k="6">6</button>
+        <button data-k="7">7</button><button data-k="8">8</button><button data-k="9">9</button>
+        <button data-k="back" class="alt">⌫</button><button data-k="0">0</button><button data-k="ok" class="ok">확인</button>
+      </div>
+      <button id="keypad-close" class="link-btn">닫기 (Esc)</button>
+    </div>
+  </div>
+
+  <!-- 사진 갤러리 -->
+  <div id="photos" class="overlay-panel hidden">
+    <div class="photos-box">
+      <div class="photos-head"><b>찍은 사진</b><button id="photos-close" class="link-btn">닫기 ✕</button></div>
+      <div id="photo-list"></div>
+      <div id="photo-empty">아직 찍은 사진이 없어요. 카메라 아이템으로 찍을 수 있어요.</div>
+    </div>
+  </div>
+  <div id="photo-viewer" class="hidden">
+    <img id="photo-img" alt="사진" draggable="false" />
+    <div class="viewer-bar">
+      <button id="zoom-out">－</button><button id="zoom-reset">맞춤</button><button id="zoom-in">＋</button>
+      <button id="viewer-keypad">번호 입력</button><button id="viewer-close">닫기</button>
+    </div>
+  </div>
+
+  <!-- 시작 화면 -->
+  <div id="start" class="screen">
+    <div class="screen-box">
+      <h1>넘버 헌트</h1>
+      <p class="subtitle">이마의 숫자를 읽고, 입력하고, 살아남아라.</p>
+      <ul class="rules">
+        <li>모두 <b>근시</b>입니다. 3m 안쪽만 선명하게 보여요.</li>
+        <li>상대 얼굴의 <b>3자리 숫자</b>를 입력하면 그 사람이 탈락! 틀리면 5초간 입력 불가.</li>
+        <li>벽에 얼굴을 묻으면 숨을 수 있지만 <b>숨음 게이지</b>가 가득 차면 탈락.</li>
+        <li>상자를 먹으면 <b>망원경 · 섬광탄 · 카메라</b> 중 하나를 얻어요.</li>
+      </ul>
+      <div class="options">
+        <label>난이도
+          <select id="opt-difficulty">
+            <option value="easy">쉬움</option>
+            <option value="normal" selected>보통</option>
+            <option value="hard">어려움</option>
+          </select>
+        </label>
+        <label>블러 품질
+          <select id="opt-quality">
+            <option value="auto" selected>자동</option>
+            <option value="0">높음</option>
+            <option value="1">중간</option>
+            <option value="2">낮음</option>
+            <option value="3">최저</option>
+          </select>
+        </label>
+      </div>
+      <button id="btn-start" class="primary">게임 시작</button>
+      <p class="controls desktop-only">PC: WASD 이동 · 마우스 시점(클릭하면 고정) · E 아이템 · Enter 숫자 입력 · C 엎드리기 · G 사진</p>
+      <p class="controls touch-only">터치: 왼쪽 조이스틱 이동 · 오른쪽 드래그 시점 · 버튼으로 아이템/숫자 입력</p>
+    </div>
+  </div>
+
+  <!-- 일시정지 -->
+  <div id="pause" class="screen hidden">
+    <div class="screen-box">
+      <h2>일시정지</h2>
+      <button id="btn-resume" class="primary">계속하기</button>
+      <button id="btn-quit" class="secondary">처음으로</button>
+    </div>
+  </div>
+
+  <!-- 게임 종료 -->
+  <div id="end" class="screen hidden">
+    <div class="screen-box">
+      <h1 id="end-title">승리!</h1>
+      <p id="end-detail"></p>
+      <button id="btn-retry" class="primary">다시 하기</button>
+      <button id="btn-home" class="secondary">처음으로</button>
+    </div>
+  </div>
+
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>
