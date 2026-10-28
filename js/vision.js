@@ -201,11 +201,7 @@ export class Vision {
 
   resize() {
     const w = window.innerWidth, h = window.innerHeight;
-    const pr = Math.min(window.devicePixelRatio || 1, QUALITY_LEVELS[this.level].pixelRatio);
-    this.renderer.setPixelRatio(pr);
-    this.renderer.setSize(w, h);
-    this.composer.setPixelRatio(pr);
-    this.composer.setSize(w, h);
+    this._setPixelRatio(Math.min(window.devicePixelRatio || 1, QUALITY_LEVELS[this.level].pixelRatio));
     this.camera.aspect = w / h;
     this.camera.updateProjectionMatrix();
   }
@@ -228,12 +224,25 @@ export class Vision {
   }
 
   // 블러 없이 지금 화면을 찍어 dataURL로 반환 (카메라 아이템)
+  // 저품질 모드에서도 숫자를 확대해 읽을 수 있도록 촬영 순간에만 해상도를 올린다.
   captureSharp() {
+    const pr = this.renderer.getPixelRatio();
+    const shotPr = Math.max(pr, Math.min(window.devicePixelRatio || 1, 1.5));
+    if (shotPr !== pr) this._setPixelRatio(shotPr);
     this.pass.sharpAll = 1;
     this.composer.render(0);
     const url = this.renderer.domElement.toDataURL('image/jpeg', 0.92);
     this.pass.sharpAll = 0;
+    if (shotPr !== pr) this._setPixelRatio(pr);
     return url;
+  }
+
+  _setPixelRatio(pr) {
+    const w = window.innerWidth, h = window.innerHeight;
+    this.renderer.setPixelRatio(pr);
+    this.renderer.setSize(w, h);
+    this.composer.setPixelRatio(pr);
+    this.composer.setSize(w, h);
   }
 
   // 자동 품질: 2초마다 평균 FPS를 보고 목표 미만이면 한 단계 낮춘다.

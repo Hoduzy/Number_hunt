@@ -5,6 +5,7 @@ import { CONFIG, DIFFICULTY } from './config.js';
 import { Character } from './character.js';
 import { generateUniqueNumbers } from './numbers.js';
 import { LocalPlayerController } from './player.js';
+import { ItemSystem } from './items.js';
 
 const COLORS = [0x3a86ff, 0xff006e, 0x8338ec, 0xfb5607, 0x06d6a0, 0xffbe0b];
 
@@ -53,7 +54,10 @@ export class Game {
     for (const c of this.characters) {
       if (!c.isPlayer) c.controller = new IdleController(c);
     }
+    this.items = new ItemSystem(this);
   }
+
+  useItem(c) { return this.items.use(c); }
 
   update(dt) {
     if (this.over) return;
@@ -64,6 +68,7 @@ export class Game {
     }
     for (const c of this.characters) c.update(dt, now, this.map);
     this._separateCharacters();
+    this.items.update(dt, now);
   }
 
   // 캐릭터끼리 겹치지 않게 밀어낸다
@@ -126,6 +131,7 @@ export class Game {
   }
 
   dispose() {
+    this.items.dispose();
     for (const c of this.characters) this.scene.remove(c.model.root);
     this.characters = [];
   }

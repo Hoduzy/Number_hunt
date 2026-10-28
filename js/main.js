@@ -6,7 +6,9 @@ import { Vision } from './vision.js';
 import { InputManager } from './input.js';
 import { CameraRig } from './player.js';
 import { Game } from './game.js';
+import { ITEM_INFO } from './items.js';
 import { UI } from './ui.js';
+import { PhotoAlbum } from './photos.js';
 
 const container = document.getElementById('game');
 
@@ -37,6 +39,8 @@ if (input.isTouch) document.body.classList.add('touch');
 const ui = new UI();
 ui.bindPerf(vision);
 const rig = new CameraRig(camera, map);
+const photos = new PhotoAlbum();
+ui.photos = photos;
 
 let game = null;
 let paused = false;
@@ -50,6 +54,7 @@ function startGame(settings) {
   game = new Game({ scene, map, input, difficulty: settings.difficulty });
   game.on('end', (e) => {
     ui.keypad.close();
+    photos.close();
     input.enabled = false;
     input.exitPointerLock();
     setTimeout(() => ui.showEnd({ win: e.win, detail: endDetail(e) }), 1400);
@@ -61,6 +66,23 @@ function startGame(settings) {
     else if (by && by.isPlayer) text += ' (내가 찾음)';
     ui.toast(text);
   });
+  game.items.onCameraShot = (c) => {
+    if (!c.isPlayer) return;
+    // 셔터 순간 화면을 블러 없이 저장
+    rig.update(0, game.player, game.player.controller, game.time);
+    photos.add(vision.captureSharp());
+    ui.shutter();
+    ui.toast('찰칵! 사진 저장됨 (G / 사진 버튼)', 'info');
+  };
+  game.on('pickup', ({ character, item }) => {
+    if (character.isPlayer) ui.toast(`${ITEM_INFO[item.type].icon} ${ITEM_INFO[item.type].name} 획득!`, 'info');
+  });
+  game.on('flash', ({ pos, affected }) => {
+    const p = game.player;
+    if (affected.includes(p)) ui.flash(1);
+    else if (p.getEyePosition(eye).distanceTo(pos) < 12) ui.flash(0.45);
+  });
+  photos.clear();
   ui.showGame(game);
   input.reset();
   input.enabled = true;
@@ -82,6 +104,29 @@ ui.keypad.onOpenChange = (open) => input.setTextSink(open ? ui.keypad : null);
 input.on('keypad', (first) => { if (game && !game.over) ui.keypad.open(first); });
 document.getElementById('btn-keypad').addEventListener('click', () => { if (game && !game.over) ui.keypad.toggle(); });
 
+// ---------- 아이템 / 자세 / 사진 ----------
+const playing = () => game && !game.over && !paused && game.player.alive;
+input.on('item', () => { if (playing()) game.useItem(game.player); });
+document.getElementById('btn-item').addEventListener('click', () => { if (playing()) game.useItem(game.player); });
+input.on('prone', () => { if (playing()) game.player.input.toggleProne = true; });
+document.getElementById('btn-prone').addEventListener('click', () => { if (playing()) game.player.input.toggleProne = true; });
+const togglePhotos = () => {
+  if (!game || game.over) return;
+  photos.toggle();
+};
+input.on('photos', togglePhotos);
+document.getElementById('btn-photos').addEventListener('click', togglePhotos);
+photos.onOpenChange = (open) => {
+  if (open) input.exitPointerLock();
+  else if (!paused) input.requestPointerLock();
+};
+photos.onKeypad = () => { if (game && !game.over) ui.keypad.open(); };
+input.on('escape', () => {
+  if (ui.keypad.isOpen) ui.keypad.close();
+  else if (photos.isOpen) photos.close();
+  else setPaused(true);
+});
+
 function readSettings() {
   return {
     difficulty: document.getElementById('opt-difficulty').value,
@@ -97,6 +142,7 @@ document.getElementById('btn-resume').addEventListener('click', () => setPaused(
 
 function goHome() {
   ui.keypad.close();
+  photos.clear();
   if (game) { game.dispose(); game = null; }
   input.enabled = false;
   ui.showStart();
@@ -110,7 +156,6 @@ function setPaused(on) {
   if (on) { input.reset(); input.exitPointerLock(); } else input.requestPointerLock();
 }
 
-input.on('escape', () => { if (!ui.overlayOpen) setPaused(true); });
 // PC: 브라우저가 Esc로 포인터 락을 풀면 일시정지
 document.addEventListener('pointerlockchange', () => {
   if (!document.pointerLockElement && game && !game.over && !paused && !ui.overlayOpen && !input.isTouch) setPaused(true);
@@ -150,4 +195,8 @@ ui.showStart();
 frame();
 
 // 디버그/테스트용 핸들
-window.__nh = { get game() { return game; }, vision, scene, camera, map, startGame };
+window.__nh = {
+  get game() { return game; }, vision, scene, camera, map, startGame,
+  // 렌더링 없이 게임 시간을 빠르게 진행 (자동 테스트용)
+  step(seconds, dt = 1 / 30) { for (let t = 0; t < seconds && game; t += dt) game.update(dt); },
+};

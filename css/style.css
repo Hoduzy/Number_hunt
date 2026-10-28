@@ -118,7 +118,10 @@ body:not(.touch) .hud-btn.big { width: 84px; height: 84px; }
   position: fixed; top: 30%; left: 50%; transform: translateX(-50%); font-size: 40px; font-weight: 900;
   color: #ffe066; text-shadow: 0 0 12px #000; pointer-events: none;
 }
-#telescope-overlay, #flash-overlay, #stun-overlay { z-index: 3; }
+#telescope-overlay, #stun-overlay { z-index: 2; }
+#flash-overlay { z-index: 6; }
+#hud { z-index: 4; }
+#keypad { z-index: 14; }
 
 /* ---------- 키패드 / 패널 ---------- */
 .overlay-panel {

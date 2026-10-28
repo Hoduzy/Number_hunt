@@ -1,4 +1,6 @@
 // HUD, 알림, 시작/종료 화면.
+import { ITEM_INFO } from './items.js';
+
 const $ = (id) => document.getElementById(id);
 
 export class UI {
@@ -52,6 +54,49 @@ export class UI {
     this.el.end.classList.remove('hidden');
   }
 
+  _updateItem(game, p) {
+    const now = game.time;
+    const btn = $('btn-item');
+    let icon = '∅', name = '아이템 없음', sub = '';
+    if (p.isTelescoping(now)) {
+      icon = ITEM_INFO.telescope.icon; name = '망원경 사용 중';
+      sub = `${(p.telescopeUntil - now).toFixed(1)}초`;
+    } else if (p.item) {
+      icon = ITEM_INFO[p.item.type].icon; name = ITEM_INFO[p.item.type].name;
+      if (p.item.type === 'camera') sub = `${p.item.shots}회 남음`;
+    }
+    const key = icon + name + sub;
+    if (key !== this._itemKey) {
+      this._itemKey = key;
+      $('item-icon').textContent = icon;
+      $('item-name').textContent = name;
+      $('item-sub').textContent = sub;
+      btn.classList.toggle('empty', !p.item && !p.isTelescoping(now));
+      btn.classList.toggle('active', p.isTelescoping(now));
+    }
+  }
+
+  // 섬광 화면 효과 (0~1)
+  flash(strength) {
+    const el = $('flash-overlay');
+    el.style.transition = 'none';
+    el.style.opacity = String(strength);
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      el.style.transition = `opacity ${0.6 + strength * 1.6}s ease-out`;
+      el.style.opacity = '0';
+    }));
+  }
+
+  shutter() {
+    const el = $('flash-overlay');
+    el.style.transition = 'none';
+    el.style.opacity = '0.6';
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      el.style.transition = 'opacity 0.35s ease-out';
+      el.style.opacity = '0';
+    }));
+  }
+
   toast(text, kind = '') {
     const d = document.createElement('div');
     d.className = `feed-item ${kind}`;
@@ -74,6 +119,11 @@ export class UI {
     $('penalty').classList.toggle('hidden', pen <= 0);
     if (pen > 0) $('penalty-sec').textContent = pen.toFixed(1);
     this.keypad.setLocked(pen > 0, pen);
+    this._updateItem(game, p);
+    const now = game.time;
+    $('telescope-overlay').classList.toggle('hidden', !(p.alive && p.isTelescoping(now)));
+    $('stun-overlay').classList.toggle('hidden', !(p.alive && p.isStunned(now)));
+    $('btn-prone').classList.toggle('on', p.prone);
     if (this.vision) {
       this.el.perf.textContent = `${Math.round(this.vision.fps)} fps · 블러 ${this.vision.levelName}`;
     }
