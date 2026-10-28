@@ -141,7 +141,8 @@ export class BotController {
         readingAny = true;
         // 빛나는 숫자는 더 빨리 읽힌다
         if (now < o.glowUntil) t += dt;
-        if (t >= this.diff.readTime && now >= c.penaltyUntil) {
+        // 시작 직후 5초는 입력하지 않음 (스폰 위치 운으로 바로 탈락하는 것 방지)
+        if (t >= this.diff.readTime && now >= c.penaltyUntil && now > 5) {
           if (Math.random() < this.diff.guessChance) {
             this._guess(o);
             t = 0;
