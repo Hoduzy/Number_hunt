@@ -7,19 +7,10 @@ import { generateUniqueNumbers } from './numbers.js';
 import { LocalPlayerController } from './player.js';
 import { ItemSystem } from './items.js';
 import { GaugeSystem } from './gauge.js';
+import { NavGrid } from './nav.js';
+import { BotController, Perception } from './bot.js';
 
 const COLORS = [0x3a86ff, 0xff006e, 0x8338ec, 0xfb5607, 0x06d6a0, 0xffbe0b];
-
-// 1단계용 임시 컨트롤러: 제자리에서 천천히 두리번거린다.
-class IdleController {
-  constructor(character) { this.character = character; this.t = Math.random() * 10; }
-  update(dt) {
-    this.t += dt;
-    const c = this.character;
-    c.input.moveX = 0; c.input.moveZ = 0;
-    c.input.yaw = c.yaw + Math.sin(this.t * 0.5) * 0.02;
-  }
-}
 
 export class Game {
   constructor({ scene, map, input, difficulty = 'normal' }) {
@@ -52,11 +43,16 @@ export class Game {
     }
     this.player = this.characters[0];
     this.player.controller = new LocalPlayerController(this.player, this.input);
-    for (const c of this.characters) {
-      if (!c.isPlayer) c.controller = new IdleController(c);
-    }
     this.items = new ItemSystem(this);
     this.gauge = new GaugeSystem(this);
+    // 길찾기 격자와 숨을 자리는 맵마다 한 번만 계산
+    this.nav = this.map.nav ||= new NavGrid(this.map);
+    this.hideSpots = this.map.hideSpots ||= this.gauge.computeHideSpots();
+    // 봇 컨트롤러 (멀티플레이 시에는 이 자리에 원격 플레이어 컨트롤러를 넣으면 된다)
+    const perception = new Perception(this);
+    for (const c of this.characters) {
+      if (!c.isPlayer) c.controller = new BotController(c, this, perception, this.difficulty);
+    }
   }
 
   useItem(c) { return this.items.use(c); }
